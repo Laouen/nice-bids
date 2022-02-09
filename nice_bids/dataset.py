@@ -23,7 +23,6 @@ class NICEBIDS:
         self.participants = pd.read_csv(
             os.path.join(self.root, 'participants.tsv'),
             sep='\t',
-            header=1,
             index_col='participant_id',
             encoding='utf8'
         )
@@ -53,3 +52,6 @@ class NICEBIDS:
             )
             for filepath in recordings
         ]
+
+    def __repr__(self) -> str:
+        return f'Subjects: {len(self.participants)}, recordings: {len(self.recordings)}'

@@ -1,14 +1,15 @@
 from pathlib import Path
 import os
+import re
 
 # TODO: Reparametrize EEG from general structures and separate in a base NBPath 
 # class and a derived EEGPath class
 class EEGPath:
 
     def __init__(self, 
-                 root: str, sub: str, task: str, ses:str=None,
-                 acq:int=None, run:int=None, suffix:str='eeg',
-                 ext:str='', rjust:int=2) -> None:
+                 root: str, sub: str, task: str, ext:str,
+                 ses:str=None, acq:int=None, run:int=None,
+                 suffix:str='eeg', rjust:int=2) -> None:
         
         if any([f is None for f in [sub, task, suffix, ext, rjust]]):
             raise ValueError('parameters sub, task, suffix, ext, rjust '
@@ -36,7 +37,7 @@ class EEGPath:
         self.path = self._build_path()
 
 
-    def _build_path(self):
+    def _build_path(self) -> Path:
 
         fields = [
             ['sub',self.sub],
@@ -58,6 +59,11 @@ class EEGPath:
             f'{filename}_{self.suffix}.{self.ext}'
         ))
 
+    def __str__(self) -> str:
+        return str(self.path)
+    
+    def __repr__(self) -> str:
+        return str(self.path)
 
     # TODO: implement
     def get_metadata(self):
