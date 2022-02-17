@@ -1,18 +1,22 @@
 import re
 import os
 
-# TODO: add more extensions
+# TODO: add more extensions (brainvision, biosemi)
 _EXTS = ['raw', 'mff']
 _EXTS_REGEX_PATTERN = '(' + '|'.join(_EXTS) + ')'
-_FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.{_EXTS_REGEX_PATTERN}$'
-_FILENAME_HUMAN_PATTERN = 'sub-<label>[_ses-<label>]_task-<label>[_acq-<label>][_run-<index>]_<suffix>.<extension>'
+_FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.'
+_EEG_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}{_EXTS_REGEX_PATTERN}$'
+_DERIVATIVE_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}.*$'
 _DIRPATH_REGEX_PATTERN = 'sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$'
+_FILENAME_HUMAN_PATTERN = 'sub-<label>[_ses-<label>]_task-<label>[_acq-<label>][_run-<index>]_<suffix>.<extension>'
+_FILENAME_REGEX_DICT = {
+    'eeg': _EEG_FILENAME_REGEX_PATTERN,
+    'derivative': _DERIVATIVE_FILENAME_REGEX_PATTERN
+}
 
-# TODO: This function can be generalized to other brain images by 
-# using the correct image filepath checker 
-def _parse_eeg_bids_filename(filepath):
+def _parse_bids_filename(filepath, filename_regex='eeg'):
     
-    if not _correct_eeg_bids_filepath(filepath):
+    if not _correct_bids_filepath(filepath, filename_regex):
         raise ValueError('filepath has incorrect bids structure')
 
     filename = os.path.basename(filepath)
@@ -38,9 +42,9 @@ def _parse_eeg_bids_filename(filepath):
 
     return params
 
-# TODO: This function can be generalized to other brain images by having 
-# the _FILENAME_REGEX_PATTERN to use as parameter
-def _correct_eeg_bids_filepath(filepath: str) -> bool:
+def _correct_bids_filepath(
+    filepath: str,
+    filename_regex='eeg') -> bool:
 
     # Check that is a file or a mff folder
     if not os.path.isfile(filepath) and not filepath.endswith('.mff'):
@@ -53,8 +57,33 @@ def _correct_eeg_bids_filepath(filepath: str) -> bool:
 
     # Check filename
     filename = os.path.basename(filepath)
-    if not re.match(_FILENAME_REGEX_PATTERN, filename):
+    if not re.match(_FILENAME_REGEX_DICT[filename_regex], filename):
         return False
 
     return True
 
+def query_filter(file, sub:str, task:str, ext:str,
+                 ses:str, acq:str, run:str, suffix:str, derivative:str=None):
+
+    zipped_fields = zip(
+        ['sub', 'task', 'ses', 'acq', 'run'],
+        [sub, task, ses, acq, run]
+    )
+
+    correct_fields = all([
+        v is None or f'{k}-{v}' in str(file)
+        for k, v in zipped_fields
+    ])
+
+    correct_suffix = suffix is None or f'_{suffix}.' in str(file)
+
+    correct_ext = ext is None or str(file).endswith(f'.{ext}')
+
+    correct_derivative = file.derivative == derivative 
+
+    return (
+        correct_fields
+        and correct_suffix
+        and correct_ext
+        and correct_derivative
+    )
