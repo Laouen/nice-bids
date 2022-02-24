@@ -49,8 +49,7 @@ class NICEBIDS:
         if os.path.exists(participants_json):
             with open(participants_json, 'r') as json_file:
                 self.participants_descriptions = json.load(json_file)
-    
-    # TODO: I can use multiprocessing for this
+
     def _read_files(self):
         
         self.files = glob(os.path.join(
