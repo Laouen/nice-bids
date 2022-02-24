@@ -1,9 +1,10 @@
+from multiprocessing import cpu_count, Pool
 import pandas as pd
 import json
 import os
 from glob import glob
 from functools import partial
-from multiprocessing import Process
+from tqdm.contrib.concurrent import process_map
 
 from nice_bids.utils import (
     _correct_bids_filepath,
@@ -12,9 +13,19 @@ from nice_bids.utils import (
 )
 from nice_bids.paths import EEGPath, DerivativePath
 
+def load_path(filepath, root, participants):
+    return EEGPath(root=root,
+                **{
+                    k:v 
+                    for k,v in _parse_bids_filename(filepath).items()
+                    if k != 'suffix'
+                },
+                participants=participants
+            )
+
 class NICEBIDS:
 
-    def __init__(self, root) -> None:
+    def __init__(self, root:str) -> None:
 
         self.root = root
         self.participants_descriptions = None
@@ -51,20 +62,21 @@ class NICEBIDS:
         ))
 
         # filter incorrect recording filenames
-        self.files = filter(_correct_bids_filepath, self.files)
+        self.files = list(filter(_correct_bids_filepath, self.files))
         
-        self.files = [
-            EEGPath(
-                root=self.root,
-                **{
-                    k:v 
-                    for k,v in _parse_bids_filename(filepath).items()
-                    if k != 'suffix'
-                },
-                participants=self.participants
-            )
-            for filepath in self.files
-        ]
+        load_file_func = partial(
+            load_path,
+            root=self.root,
+            participants=self.participants
+        )
+
+        # Parallel loading with a progress bar
+        self.files = process_map(
+            load_file_func,
+            self.files,
+            max_workers=cpu_count(),
+            chunksize=1
+        ) 
 
     def _create_metadata(self):
         self.metadata = pd.DataFrame(
