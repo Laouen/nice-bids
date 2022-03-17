@@ -9,8 +9,18 @@ import pandas as pd
 import json
 from glob import glob
 
-from scipy.misc import derivative
-
+# TODO: add more extensions (brainvision, biosemi)
+_EXTS = ['raw', 'mff']
+_EXTS_REGEX_PATTERN = '(' + '|'.join(_EXTS) + ')'
+_FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.'
+_EEG_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}{_EXTS_REGEX_PATTERN}$'
+_DERIVATIVE_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}.*$'
+_DIRPATH_REGEX_PATTERN = 'sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$'
+_FILENAME_HUMAN_PATTERN = '<root_path>/sub-<label>[_ses-<label>]_task-<label>[_acq-<label>][_run-<index>]_<suffix>.<extension>'
+_FILENAME_REGEX_DICT = {
+    'eeg': _EEG_FILENAME_REGEX_PATTERN,
+    'derivative': _DERIVATIVE_FILENAME_REGEX_PATTERN
+}
 
 class BIDSPath:
 
@@ -22,9 +32,58 @@ class BIDSPath:
         if isinstance(root, BIDSPath):
             self._copy_constructor(root)
             return
+        
+        elif all([f is None for f in [sub, task, suffix, ext]]):
+            self._filepath_parser_constructor(root, participants)
+        
+        else:
+            self._default_constructor(
+                root, sub, task, ext, suffix, derivative,
+                ses, acq, run, rjust, participants
+            )
 
-        if any([f is None for f in [sub, task, suffix, ext, rjust]]):
-            raise ValueError('parameters sub, task, suffix, ext, rjust '
+    def _copy_constructor(self, other:BIDSPath):
+        self._set(**other.fields)
+        self.path = Path(other.path)
+        self.metadata = copy.deepcopy(other.metadata)
+
+    def _filepath_parser_constructor(self, 
+                                     filepath:str,
+                                     participants:pd.DataFrame=None):
+
+        try:
+            idx = re.search('sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$', filepath)
+            root = filepath[:idx].rstrip('/')
+            filepath = filepath[idx:]
+            derivative = None
+            root_dirs = root.split('/')
+            if len(root_dirs) > 1 and root_dirs[-2] == 'derivatives':
+                root = os.path.join(root_dirs[:-2])
+                derivative = root_dirs[-1]
+        except:
+            raise ValueError(
+                'filepath is not a valid BIDS path.\n'
+                f'Valid BID paths follow the pattern: {_FILENAME_HUMAN_PATTERN}'
+            )
+
+        self._default_constructor(
+            root=root,
+            participants=participants,
+            derivative=derivative,
+            **{
+                k:v 
+                for k,v in BIDSPath.parse_filepath(filepath).items()
+            }
+        )
+
+    def _default_constructor(self,
+        root: str, sub:str=None, task:str=None, ext:str=None,
+        suffix:str=None, derivative:str=None, ses:str=None, acq:int=None,
+        run:int=None, rjust:int=2, participants:pd.DataFrame=None):
+
+        if any([f is None for f in [sub, task, suffix, ext]]):
+            print([sub, task, suffix, ext])
+            raise ValueError('parameters sub, task, suffix, ext '
                              'must be all different than None')
         
         if any([not re.match('^[0-9a-zA-Z]+$', f) for f in [sub, task, suffix, ext]]):
@@ -37,11 +96,6 @@ class BIDSPath:
         self._set(root, sub, task, ext, suffix, derivative, ses, acq, run, rjust)
         self.path = self._build_path()
         self.metadata = self._get_metadata(participants)
-
-    def _copy_constructor(self, other:BIDSPath):
-        self._set(**other.fields)
-        self.path = Path(other.path)
-        self.metadata = copy.deepcopy(other.metadata)
 
     def _set(self, root:str, sub:str, task:str, ext:str,
              suffix:str, derivative:str, ses:str,
@@ -181,6 +235,56 @@ class BIDSPath:
         })
 
         return res
+    
+    @staticmethod
+    def parse_filepath(filepath, filename_regex='eeg'):
+    
+        if not BIDSPath.correct_filepath(filepath, filename_regex):
+            raise ValueError('Dilepath has incorrect bids structure')
+
+        filename = os.path.basename(filepath)
+        fields = filename.split('.')[0].split('_')
+
+        # Check fields
+        params = {
+            k:v 
+            for k,v in [
+                f.split('-')
+                for f in fields[:-1] # Ignore suffix
+            ]
+        }
+
+        # Cast numeric fields to integer
+        for field in ['run', 'acq']:
+            if field in params.keys():
+                params[field] = int(params[field])
+
+        # Parse non field params
+        params['suffix'] = fields[-1]
+        params['ext'] = '.'.join(filename.split('.')[1:])
+
+        return params
+    
+    @staticmethod
+    def correct_filepath(
+        filepath: str,
+        filename_regex='eeg') -> bool:
+
+        # Check that is a file or a mff folder
+        if not os.path.isfile(filepath) and not filepath.endswith('.mff'):
+            return False
+
+        # Check directory path has correct BIDS format inside the root
+        dirpath = os.path.dirname(filepath)
+        if not re.search(_DIRPATH_REGEX_PATTERN, dirpath):
+            return False
+
+        # Check filename
+        filename = os.path.basename(filepath)
+        if not re.match(_FILENAME_REGEX_DICT[filename_regex], filename):
+            return False
+
+        return True
 
 
 
@@ -191,10 +295,13 @@ class EEGPath(BIDSPath):
                  root:Union[str,EEGPath], sub:str=None, task:str=None, 
                  ext:str=None, ses:str=None, acq:int=None, run:int=None,
                  rjust:int=2, participants=None) -> None:
+
         
+        suffix = None if sub is None else 'eeg'
+
         super(EEGPath, self).__init__(
             root=root, sub=sub, task=task, ext=ext, 
-            suffix='eeg', ses=ses, acq=acq, run=run,
+            suffix=suffix, ses=ses, acq=acq, run=run,
             rjust=rjust, participants=participants
         )
 
