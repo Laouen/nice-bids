@@ -16,7 +16,7 @@ _FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_a
 _EEG_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}{_EXTS_REGEX_PATTERN}$'
 _DERIVATIVE_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}.*$'
 _DIRPATH_REGEX_PATTERN = 'sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$'
-_FILENAME_HUMAN_PATTERN = '<root_path>/sub-<label>[_ses-<label>]_task-<label>[_acq-<label>][_run-<index>]_<suffix>.<extension>'
+_FILEPATH_HUMAN_PATTERN = '<root_path>/sub-<label>[/ses-<label>]/eeg/sub-<label>[_ses-<label>]_task-<label>[_acq-<label>][_run-<index>]_<suffix>.<extension>'
 _FILENAME_REGEX_DICT = {
     'eeg': _EEG_FILENAME_REGEX_PATTERN,
     'derivative': _DERIVATIVE_FILENAME_REGEX_PATTERN
@@ -51,29 +51,29 @@ class BIDSPath:
                                      filepath:str,
                                      participants:pd.DataFrame=None):
 
-        try:
-            idx = re.search('sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$', filepath)
-            root = filepath[:idx].rstrip('/')
-            filepath = filepath[idx:]
-            derivative = None
-            root_dirs = root.split('/')
-            if len(root_dirs) > 1 and root_dirs[-2] == 'derivatives':
-                root = os.path.join(root_dirs[:-2])
-                derivative = root_dirs[-1]
-        except:
+        # Extract root and derivative from filepath
+        idx = re.search('/sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg', filepath)
+        if idx is None:
             raise ValueError(
-                'filepath is not a valid BIDS path.\n'
-                f'Valid BID paths follow the pattern: {_FILENAME_HUMAN_PATTERN}'
+                'Filepath is not a valid BIDS path:\n'
+                f'{filepath}\n'
+                f'Valid BID paths follow the pattern:\n'
+                f'{_FILEPATH_HUMAN_PATTERN}'
             )
+        idx = idx.start()
+        root = filepath[:idx]
+        root_dirs = root.split('/')
+        if len(root_dirs) > 1 and root_dirs[-2] == 'derivatives':
+            root = str(Path(root).parent.parent)
+            derivative = root_dirs[-1]
+        else:
+            derivative = None
 
         self._default_constructor(
             root=root,
             participants=participants,
             derivative=derivative,
-            **{
-                k:v 
-                for k,v in BIDSPath.parse_filepath(filepath).items()
-            }
+            **BIDSPath.parse_filepath(filepath, filename_regex='derivative')
         )
 
     def _default_constructor(self,
@@ -213,7 +213,7 @@ class BIDSPath:
                 encoding='utf8'
             )
 
-        res = participants.loc[self.sub].to_dict()
+        res = participants.loc[f'sub-{self.sub}'].to_dict()
 
         # Update metadata with all the avaiable not derivatives sidecards
         for file in self._get_associated_sidecar_paths():
@@ -240,7 +240,7 @@ class BIDSPath:
     def parse_filepath(filepath, filename_regex='eeg'):
     
         if not BIDSPath.correct_filepath(filepath, filename_regex):
-            raise ValueError('Dilepath has incorrect bids structure')
+            raise ValueError(f'filepath has incorrect bids structure: {filepath}')
 
         filename = os.path.basename(filepath)
         fields = filename.split('.')[0].split('_')
