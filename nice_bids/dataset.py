@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import pandas as pd
 import json
@@ -12,19 +12,21 @@ from tqdm.contrib.concurrent import process_map
 
 from nice_bids.paths import BIDSPath, EEGPath, DerivativePath
 
-def load_path(filepath,  participants):
+def load_path(data:Tuple[str, dict]) -> EEGPath:
+    filepath, metadata = data
     return EEGPath(
         root=filepath,
-        participants=participants
+        metadata=metadata
     )
 
-def load_derivative(filepath, participants):
+def load_derivative(data:Tuple[str, dict]) -> DerivativePath:
+    filepath, metadata = data
     return DerivativePath(
         root=filepath,
-        participants=participants
+        metadata=metadata
     )
 
-# TODO(Lao): accept list of sub, ses, task and acq as coma separated strings to allow to only load some parts of the datasets
+# TODO(Lao): Accept list of sub, ses, task and acq as coma separated strings to allow to only load some parts of the datasets
 # If I do this, the split dataloader could use this functionality to split the subjects and then construct two separated datasets 
 # from there
 class NICEBIDS:
@@ -62,7 +64,7 @@ class NICEBIDS:
             f'sub-{subs}',
             f'ses-{sess}',
             'eeg',
-            f'sub-{subs}_ses-{sess}_task-{tasks}_acq-{acqs}_eeg.*$' # <- match end of string
+            f'sub-{subs}_ses-{sess}_task-{tasks}_acq-{acqs}_*.*$' # <- match end of string
         )
         
         self.rjust = rjust
@@ -98,7 +100,7 @@ class NICEBIDS:
     def _read_files(self, n_jobs=None):
         print('Loading data')
         
-        self.files = glob(os.path.join(
+        files = glob(os.path.join(
             self.root,
             f'sub-*',
             f'ses-*',
@@ -107,22 +109,24 @@ class NICEBIDS:
         ))
 
         # Filter incorrect recording filenames
-        self.files = filter(BIDSPath.correct_filepath, self.files)
+        files = filter(BIDSPath.correct_filepath, files)
         
         # Filter by selected subset
         pattern = os.path.join(self.root, self.subset_regex_pattern)
-        print(pattern)
-        self.files = [file for file in self.files if re.match(pattern, file)]
-
-        load_file_func = partial(
-            load_path,
-            participants=self.participants
-        )
+        files = [file for file in files if re.match(pattern, file)]
+        files = [
+            (file, re.search('sub-([a-zA-Z0-9]+)/', file).group(1))
+            for file in files
+        ]
+        files = [
+            (file, self.participants.loc[f'sub-{sub}'].to_dict())
+            for file, sub in files
+        ]
 
         # Parallel loading with a progress bar
         self.files = process_map(
-            load_file_func,
-            self.files,
+            load_path,
+            files,
             max_workers=n_jobs if n_jobs is not None else cpu_count(),
             chunksize=1,
             leave=False
@@ -146,27 +150,32 @@ class NICEBIDS:
         ))
 
         # Filter derivatives by subset and folders
-        derivatives = '(' + '|'.join(derivatives) + ')' if derivatives else '.+'
+        derivatives = '(' + '|'.join(derivatives) + ')' if derivatives is not None else '(.+)'
         pattern = os.path.join(
             derivative_root,
             derivatives,
             self.subset_regex_pattern
         )
+
         derivative_files = [file for file in files if re.match(pattern, file)]
 
         derivative_files = [
             file for file in derivative_files
             if BIDSPath.correct_filepath(file, 'derivative')
         ]
-        
-        load_derivative_func = partial(
-            load_derivative,
-            participants=self.participants
-        )
+
+        derivative_files = [
+            (file, re.search('sub-([a-zA-Z0-9]+)/', file).group(1))
+            for file in derivative_files
+        ]
+        derivative_files = [
+            (file, self.participants.loc[f'sub-{sub}'].to_dict())
+            for file, sub in derivative_files
+        ]
 
         # Parallel loading with a progress bar
         self.derivative_files = process_map(
-            load_derivative_func,
+            load_derivative,
             derivative_files,
             max_workers=n_jobs if n_jobs is not None else cpu_count(),
             chunksize=1,

@@ -27,19 +27,19 @@ class BIDSPath:
     def __init__(self, 
                  root: Union[str,BIDSPath], sub:str=None, task:str=None, ext:str=None,
                  suffix:str=None, derivative:str=None, ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, participants:pd.DataFrame=None) -> None:
+                 rjust:int=2, metadata:dict=None) -> None:
 
         if isinstance(root, BIDSPath):
             self._copy_constructor(root)
             return
         
         elif all([f is None for f in [sub, task, suffix, ext]]):
-            self._filepath_parser_constructor(root, participants)
+            self._filepath_parser_constructor(root, metadata)
         
         else:
             self._default_constructor(
                 root, sub, task, ext, suffix, derivative,
-                ses, acq, run, rjust, participants
+                ses, acq, run, rjust, metadata
             )
 
     def _copy_constructor(self, other:BIDSPath):
@@ -49,7 +49,7 @@ class BIDSPath:
 
     def _filepath_parser_constructor(self, 
                                      filepath:str,
-                                     participants:pd.DataFrame=None):
+                                     metadata:dict=None):
 
         # Extract root and derivative from filepath
         idx = re.search('/sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg', filepath)
@@ -71,7 +71,7 @@ class BIDSPath:
 
         self._default_constructor(
             root=root,
-            participants=participants,
+            metadata=metadata,
             derivative=derivative,
             **BIDSPath.parse_filepath(filepath, filename_regex='derivative')
         )
@@ -79,7 +79,7 @@ class BIDSPath:
     def _default_constructor(self,
         root: str, sub:str=None, task:str=None, ext:str=None,
         suffix:str=None, derivative:str=None, ses:str=None, acq:int=None,
-        run:int=None, rjust:int=2, participants:pd.DataFrame=None):
+        run:int=None, rjust:int=2, metadata:dict=None):
 
         if any([f is None for f in [sub, task, suffix, ext]]):
             print([sub, task, suffix, ext])
@@ -95,7 +95,7 @@ class BIDSPath:
 
         self._set(root, sub, task, ext, suffix, derivative, ses, acq, run, rjust)
         self.path = self._build_path()
-        self.metadata = self._get_metadata(participants)
+        self.metadata = self._get_metadata(metadata)
 
     def _set(self, root:str, sub:str, task:str, ext:str,
              suffix:str, derivative:str, ses:str,
@@ -204,21 +204,15 @@ class BIDSPath:
     def __repr__(self) -> str:
         return str(self.path)
 
-    def _get_metadata(self, participants):
-        if participants is None:
-            participants = pd.read_csv(
-                os.path.join(self.root, 'participants.tsv'),
-                sep='\t',
-                index_col='participant_id',
-                encoding='utf8'
-            )
+    def _get_metadata(self, metadata:dict=None) -> dict:
+        res = metadata if metadata is not None else {}
 
-        res = participants.loc[f'sub-{self.sub}'].to_dict()
-
+        '''
         # Update metadata with all the avaiable not derivatives sidecards
         for file in self._get_associated_sidecar_paths():
             with open(file, 'r', encoding='utf8') as sidecar_file:
                 res.update(json.load(sidecar_file))
+        '''
 
         # Update metadata with the specific sidecar file (derivative or not) if exist
         json_file = self._build_sidecar_path()
@@ -294,7 +288,7 @@ class EEGPath(BIDSPath):
     def __init__(self, 
                  root:Union[str,EEGPath], sub:str=None, task:str=None, 
                  ext:str=None, ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, participants=None) -> None:
+                 rjust:int=2, metadata:dict=None) -> None:
 
         
         suffix = None if sub is None else 'eeg'
@@ -302,7 +296,7 @@ class EEGPath(BIDSPath):
         super(EEGPath, self).__init__(
             root=root, sub=sub, task=task, ext=ext, 
             suffix=suffix, ses=ses, acq=acq, run=run,
-            rjust=rjust, participants=participants
+            rjust=rjust, metadata=metadata
         )
 
 
@@ -313,11 +307,11 @@ class DerivativePath(BIDSPath):
                  root:Union[str,DerivativePath], derivative:str=None,
                  sub:str=None, task:str=None, suffix:str=None, ext:str=None,
                  ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, participants=None) -> None:
+                 rjust:int=2, metadata:dict=None) -> None:
         
         super(DerivativePath, self).__init__(
             root=root, derivative=derivative, 
             sub=sub, task=task, suffix=suffix, ext=ext, 
             ses=ses, acq=acq, run=run,
-            rjust=rjust, participants=participants
+            rjust=rjust, metadata=metadata
         )
