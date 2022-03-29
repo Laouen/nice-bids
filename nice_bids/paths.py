@@ -166,13 +166,15 @@ class BIDSPath:
         fields = [f for f in fields if f[1] is not None]
         filename = "_".join(["-".join(f) for f in fields])
 
+        # NOTE: sidecar_patu is always the one in the subject directory and not
+        # in the derivatives folder because of that, I don't add derivative root
+        # to the siedcar path
         return Path(os.path.join(
             self.root,
-            self.derivative_path, # if derivative_path is '' then this is not included in the path
             f'sub-{self.sub}',
             f'ses-{self.ses}' if self.ses is not None else '',
             'eeg',
-            f'{filename}_{self.suffix}.json'
+            f'{filename}_eeg.json'
         ))
     
     # TODO: extend the suffixes allowed for sidecars or add a raw data asociation
@@ -208,6 +210,10 @@ class BIDSPath:
         res = metadata if metadata is not None else {}
 
         '''
+        #NOTE: The following code is not used as we are not using sidecars in
+        other levels that is not the recording level and looking for sidecars
+        at all levels lows down dataset loading time.
+
         # Update metadata with all the avaiable not derivatives sidecards
         for file in self._get_associated_sidecar_paths():
             with open(file, 'r', encoding='utf8') as sidecar_file:
