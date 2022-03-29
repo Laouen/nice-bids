@@ -247,6 +247,7 @@ class NICEBIDS:
         
         return res
 
+    #TODO(Lao): Accept lists of suffix, ext, sub, ses, task, acq and run to filer subsets
     def get_derivatives(self, derivative:str, 
                         suffix:str=None, ext:str=None,
                         sub:str=None, ses:str=None,
