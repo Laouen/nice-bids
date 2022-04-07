@@ -5,6 +5,8 @@ import json
 import os
 from glob import glob
 import re
+import shutil
+from zipfile import ZipFile
 
 from functools import partial
 from multiprocessing import cpu_count
@@ -183,6 +185,11 @@ class NICEBIDS:
         )
 
     def _create_metadata(self):
+
+        if len(self.files) == 0:
+            print('No files found, no metadata to merge')
+            return
+
         print('Creating metadata')
         self.metadata = pd.DataFrame(
             [file.metadata for file in self.files]
@@ -272,6 +279,52 @@ class NICEBIDS:
 
     def __len__(self):
         return len(self.files)
+
+    def add(self, zip_file, sub:str, ses:str, task:str, acq:str, setup:str):
+        
+        
+        # TODO: Check all files in the zip_file have correct name pattern
+
+        # Check there is not data for that subject, session, task, acquisition
+        found_files = dataset.get(sub=sub, ses=ses, task=task, acq=acq)
+        if len(found_files) != 0:
+            raise ValueError(f'Data already exists for {sub} {ses} {task} {acq}')
+
+        # Copy file from current location to the new location of the
+        # database building subdirectories if needed
+        new_file = EEGPath(
+            root=self.root,
+            sub=sub,
+            ses=ses,
+            task=task,
+            acq=acq,
+            ext='zip'
+        )
+        new_file_folder = new_file.path.parent
+        new_file_folder.mkdir(parents=True, exist_ok=True)
+        shutil.copy(zip_file, new_file.path)
+
+        # extract zip file
+        ZipFile(new_file.path).extractall(
+            path=new_file.path.parent,
+            members=None,
+            pwd=None
+        )
+
+        # remove zip file
+        os.remove(new_file.path)
+
+        # Add metadata to participants.tsv
+        self.participants.loc[f'sub-{sub}', task] = True 
+        self.participants.to_csv(
+            os.path.join(self.root, 'participants.tsv'),
+            sep='\t',
+            encoding='utf8'
+        )
+
+        # Add metadata to sidecar    
+        with open(new_file._build_sidecar_path(), 'w') as json_file:
+            json.dump({'setup': setup}, json_file, indent=4)
 
     @staticmethod
     def query_filter(
