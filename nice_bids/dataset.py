@@ -1,4 +1,5 @@
 from typing import List, Union, Tuple
+from numbers import Number
 
 import pandas as pd
 import json
@@ -28,51 +29,50 @@ def load_derivative(data:Tuple[str, dict]) -> DerivativePath:
         metadata=metadata
     )
 
-# TODO(Lao): Accept list of sub, ses, task and acq as coma separated strings to allow to only load some parts of the datasets
-# If I do this, the split dataloader could use this functionality to split the subjects and then construct two separated datasets 
-# from there
 class NICEBIDS:
 
     def __init__(self, root:str, 
                  sub:Union[str,List[str]]=None,
                  ses:Union[str,List[str]]=None,
                  task:Union[str,List[str]]=None,
-                 acq:Union[int,List[int]]=None,
+                 acq:Union[str,int,List[int]]=None,
                  derivatives:List[str]=None, rjust:int=2) -> None:
 
-        self.subset = {
-            'sub': sub,
-            'ses': ses,
-            'task': task,
-            'acq': acq
-        }
-
-        # Filter and parse list string and single values to list
-        self.subset = {k:v for k,v in self.subset.items() if v is not None}
-        self.subset = {
-            k: v.replace(', ',',').split(',') if isinstance(v,str) else v 
-            for k,v in self.subset.items()
-        }
-
-        # build subset regex pattern for filtering
-        subs = '(' + '|'.join(self.subset.get('sub', ['.+'])) + ')'
-        sess = '(' + '|'.join(self.subset.get('ses', ['.+'])) + ')'
-        tasks = '(' + '|'.join(self.subset.get('task', ['.+'])) + ')'
-        acqs = self.subset.get('acq', ['.+'])
-        if acqs[0] != '.+':
-            acqs = [str(acq).rjust(self.rjust, '0') for acq in acqs]
-        acqs = '(' + '|'.join(acqs) + ')'
-        self.subset_regex_pattern = os.path.join(
-            f'sub-{subs}',
-            f'ses-{sess}',
-            'eeg',
-            f'sub-{subs}_ses-{sess}_task-{tasks}_acq-{acqs}_*.*$' # <- match end of string
-        )
-        
         self.rjust = rjust
         self.root = root
         self.participants_descriptions = None
         self.participants = None
+
+        self.subset = {
+            'sub': sub if sub is not None else ['.+'],
+            'ses': ses if ses is not None else ['.+'],
+            'task': task if task is not None else ['.+'],
+            'acq': acq if acq is not None else ['.+']
+        }
+
+        print(self.subset)
+
+        # Filter and parse list string and single values to list
+        self.subset = {
+            k: v.replace(', ',',').split(',') if isinstance(v,str) 
+                else [str(int(v)).rjust(self.rjust, '0')] if isinstance(v,Number) 
+                else v 
+            for k,v in self.subset.items()
+        }
+        print(self.subset)
+
+        # build subset regex pattern for filtering
+        subs = '(' + '|'.join(self.subset['sub']) + ')'
+        sess = '(' + '|'.join(self.subset['ses']) + ')'
+        tasks = '(' + '|'.join(self.subset['task']) + ')'
+        acqs = '(' + '|'.join(self.subset['acq']) + ')'
+
+        self.subset_regex_pattern = os.path.join(
+            f'sub-{subs}',
+            f'ses-{sess}',
+            'eeg',
+            f'sub-{subs}_ses-{sess}_task-{tasks}_acq-{acqs}_(.+).(.+)$' # <- match end of string and run-x is optional 
+        )
 
         self._read_participants()
         self._read_files()
@@ -187,6 +187,7 @@ class NICEBIDS:
     def _create_metadata(self):
 
         if len(self.files) == 0:
+            self.metadata = pd.DataFrame(columns=['participant_id', 'ses', 'task', 'acq'])
             print('No files found, no metadata to merge')
             return
 
