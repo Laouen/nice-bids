@@ -226,10 +226,10 @@ class NICEBIDS:
                   acq:int=None, run:int=None, suffix:str=None):
 
         if acq is not None:
-            str(acq).rjust(self.rjust, '0')
+            acq = str(acq).rjust(self.rjust, '0')
         
         if run is not None:
-            str(run).rjust(self.rjust, '0')
+            run = str(run).rjust(self.rjust, '0')
         
         query = partial(
             NICEBIDS.query_filter,
@@ -265,10 +265,10 @@ class NICEBIDS:
                         task:str=None, acq:int=None, run:int=None):
         
         if acq is not None:
-            str(acq).rjust(self.rjust, '0')
+            acq = str(acq).rjust(self.rjust, '0')
         
         if run is not None:
-            str(run).rjust(self.rjust, '0')
+            run = str(run).rjust(self.rjust, '0')
         
         query = partial(
             NICEBIDS.query_filter,
@@ -296,7 +296,7 @@ class NICEBIDS:
         # TODO: Check all files in the zip_file have correct name pattern
 
         # Check there is not data for that subject, session, task, acquisition
-        found_files = dataset.get(sub=sub, ses=ses, task=task, acq=acq)
+        found_files = self.get(sub=sub, ses=ses, task=task, acq=acq)
         if len(found_files) != 0:
             raise ValueError(f'Data already exists for {sub} {ses} {task} {acq}')
 
