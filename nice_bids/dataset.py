@@ -50,8 +50,6 @@ class NICEBIDS:
             'acq': acq if acq is not None else ['.+']
         }
 
-        print(self.subset)
-
         # Filter and parse list string and single values to list
         self.subset = {
             k: v.replace(', ',',').split(',') if isinstance(v,str) 
@@ -59,7 +57,6 @@ class NICEBIDS:
                 else v 
             for k,v in self.subset.items()
         }
-        print(self.subset)
 
         # build subset regex pattern for filtering
         subs = '(' + '|'.join(self.subset['sub']) + ')'
@@ -89,7 +86,7 @@ class NICEBIDS:
         )
 
         # Remove participants not selected
-        if 'sub' in self.subset:
+        if self.subset['sub'] != ['.+']:
             subs = [f'sub-{sub}' for sub in self.subset['sub']]
             fileter_mask = self.participants.index.isin(subs)
             self.participants = self.participants[fileter_mask]
