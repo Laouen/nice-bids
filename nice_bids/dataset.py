@@ -226,6 +226,12 @@ class NICEBIDS:
 
     def get(self, sub:str=None, task:str=None, ext:str=None, ses:str=None,
                   acq:int=None, run:int=None, suffix:str=None):
+
+        if acq is not None:
+            str(acq).rjust(self.rjust, '0')
+        
+        if run is not None:
+            str(run).rjust(self.rjust, '0')
         
         query = partial(
             NICEBIDS.query_filter,
@@ -259,6 +265,12 @@ class NICEBIDS:
                         suffix:str=None, ext:str=None,
                         sub:str=None, ses:str=None,
                         task:str=None, acq:int=None, run:int=None):
+        
+        if acq is not None:
+            str(acq).rjust(self.rjust, '0')
+        
+        if run is not None:
+            str(run).rjust(self.rjust, '0')
         
         query = partial(
             NICEBIDS.query_filter,
