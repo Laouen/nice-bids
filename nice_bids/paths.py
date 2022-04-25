@@ -10,7 +10,7 @@ import json
 from glob import glob
 
 # TODO: add more extensions (brainvision, biosemi)
-_EXTS = ['raw', 'mff']
+_EXTS = ['raw', 'mff', 'vmrk', 'vhdr', 'eeg', 'bdf', 'edf', 'EDF']
 _EXTS_REGEX_PATTERN = '(' + '|'.join(_EXTS) + ')'
 _FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.'
 _EEG_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}{_EXTS_REGEX_PATTERN}$'
