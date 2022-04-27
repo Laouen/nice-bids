@@ -77,7 +77,7 @@ class NICEBIDS:
         self._create_metadata()
 
     def _read_participants(self):
-        print('Reading participants metadata')
+        print('Reading participants metadata...')
         self.participants = pd.read_csv(
             os.path.join(self.root, 'participants.tsv'),
             sep='\t',
@@ -97,7 +97,7 @@ class NICEBIDS:
                 self.participants_descriptions = json.load(json_file)
 
     def _read_files(self, n_jobs=None):
-        print('Loading data')
+        print('Loading data...')
         
         files = glob(os.path.join(
             self.root,
@@ -137,7 +137,7 @@ class NICEBIDS:
             print('There is no derivatives folder. Reading derivative skiped')
             return
 
-        print('Reading derivatives')
+        print('Reading derivatives...')
 
         files = glob(os.path.join(
             derivative_root,
@@ -188,7 +188,7 @@ class NICEBIDS:
             print('No files found, no metadata to merge')
             return
 
-        print('Creating metadata')
+        print('Creating metadata...')
         self.metadata = pd.DataFrame(
             [file.metadata for file in self.files]
         )
