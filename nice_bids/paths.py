@@ -9,7 +9,6 @@ import pandas as pd
 import json
 from glob import glob
 
-# TODO: add more extensions (brainvision, biosemi)
 _EXTS = ['raw', 'mff', 'vmrk', 'vhdr', 'eeg', 'bdf', 'edf', 'EDF']
 _EXTS_REGEX_PATTERN = '(' + '|'.join(_EXTS) + ')'
 _FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.'
@@ -21,6 +20,7 @@ _FILENAME_REGEX_DICT = {
     'eeg': _EEG_FILENAME_REGEX_PATTERN,
     'derivative': _DERIVATIVE_FILENAME_REGEX_PATTERN
 }
+
 
 class BIDSPath:
 
@@ -287,8 +287,6 @@ class BIDSPath:
         return True
 
 
-
-
 class EEGPath(BIDSPath):
 
     def __init__(self, 
@@ -304,7 +302,6 @@ class EEGPath(BIDSPath):
             suffix=suffix, ses=ses, acq=acq, run=run,
             rjust=rjust, metadata=metadata
         )
-
 
 
 class DerivativePath(BIDSPath):

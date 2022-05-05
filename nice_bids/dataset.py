@@ -42,6 +42,7 @@ class NICEBIDS:
         self.root = root
         self.participants_descriptions = None
         self.participants = None
+        self.derivatives_to_load = derivatives
 
         self.subset = {
             'sub': sub if sub is not None else ['.+'],
@@ -73,7 +74,7 @@ class NICEBIDS:
 
         self._read_participants()
         self._read_files()
-        self._read_derivatives(derivatives)
+        self._read_derivatives()
         self._create_metadata()
 
     def _read_participants(self):
@@ -131,7 +132,7 @@ class NICEBIDS:
             leave=False
         )
 
-    def _read_derivatives(self, derivatives:List[str]=None, n_jobs:int=None):
+    def _read_derivatives(self, n_jobs:int=None):
         derivative_root = os.path.join(self.root, 'derivatives')
         if not os.path.exists(derivative_root):
             print('There is no derivatives folder. Reading derivative skiped')
@@ -149,7 +150,10 @@ class NICEBIDS:
         ))
 
         # Filter derivatives by subset and folders
-        derivatives = '(' + '|'.join(derivatives) + ')' if derivatives is not None else '(.+)'
+        derivatives = '(.+)'
+        if self.derivatives_to_load is not None:
+            derivatives = '(' + '|'.join(self.derivatives_to_load) + ')'
+
         pattern = os.path.join(
             derivative_root,
             derivatives,
@@ -221,6 +225,10 @@ class NICEBIDS:
                     self.metadata[c],
                     errors='ignore'
                 )
+
+    def reload_derivatives(self, n_jobs:int=None):
+        self._read_derivatives(n_jobs)
+        self._create_metadata()
 
     def get(self, sub:str=None, task:str=None, ext:str=None, ses:str=None,
                   acq:int=None, run:int=None, suffix:str=None):
