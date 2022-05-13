@@ -36,8 +36,9 @@ class NICEBIDS:
                  ses:Union[str,List[str]]=None,
                  task:Union[str,List[str]]=None,
                  acq:Union[str,int,List[int]]=None,
-                 derivatives:List[str]=None, rjust:int=2) -> None:
+                 derivatives:List[str]=None, rjust:int=2, n_jobs=None) -> None:
 
+        self.n_jobs = n_jobs if n_jobs is not None else cpu_count()
         self.rjust = rjust
         self.root = root
         self.participants_descriptions = None
@@ -97,7 +98,7 @@ class NICEBIDS:
             with open(participants_json, 'r') as json_file:
                 self.participants_descriptions = json.load(json_file)
 
-    def _read_files(self, n_jobs=None):
+    def _read_files(self):
         print('Loading data...')
         
         files = glob(os.path.join(
@@ -127,12 +128,12 @@ class NICEBIDS:
         self.files = process_map(
             load_path,
             files,
-            max_workers=n_jobs if n_jobs is not None else cpu_count(),
+            max_workers=self.n_jobs,
             chunksize=1,
             leave=False
         )
 
-    def _read_derivatives(self, n_jobs:int=None):
+    def _read_derivatives(self):
         derivative_root = os.path.join(self.root, 'derivatives')
         if not os.path.exists(derivative_root):
             print('There is no derivatives folder. Reading derivative skiped')
@@ -180,7 +181,7 @@ class NICEBIDS:
         self.derivative_files = process_map(
             load_derivative,
             derivative_files,
-            max_workers=n_jobs if n_jobs is not None else cpu_count(),
+            max_workers=self.n_jobs,
             chunksize=1,
             leave=False
         )
@@ -226,8 +227,8 @@ class NICEBIDS:
                     errors='ignore'
                 )
 
-    def reload_derivatives(self, n_jobs:int=None):
-        self._read_derivatives(n_jobs)
+    def reload_derivatives(self):
+        self._read_derivatives()
         self._create_metadata()
 
     def get(self, sub:str=None, task:str=None, ext:str=None, ses:str=None,
