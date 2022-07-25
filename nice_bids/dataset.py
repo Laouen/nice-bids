@@ -15,6 +15,9 @@ from tqdm.contrib.concurrent import process_map
 
 from nice_bids.paths import BIDSPath, EEGPath, DerivativePath
 
+def int2str(x:int, rjust:int) -> str:
+    return str(x).rjust(rjust, '0')
+
 def load_path(data:Tuple[str, dict]) -> EEGPath:
     filepath, metadata = data
     return EEGPath(
@@ -35,7 +38,7 @@ class NICEBIDS:
                  sub:Union[str,List[str]]=None,
                  ses:Union[str,List[str]]=None,
                  task:Union[str,List[str]]=None,
-                 acq:Union[str,int,List[int]]=None,
+                 acq:Union[int,List[int]]=None,
                  derivatives:List[str]=None, rjust:int=2, n_jobs=None) -> None:
 
         self.n_jobs = n_jobs if n_jobs is not None else cpu_count()
@@ -45,22 +48,28 @@ class NICEBIDS:
         self.participants = None
         self.derivatives_to_load = derivatives
 
+        # Parse string subseting parameters
         self.subset = {
             'sub': sub if sub is not None else ['.+'],
             'ses': ses if ses is not None else ['.+'],
             'task': task if task is not None else ['.+'],
-            'acq': acq if acq is not None else ['.+']
         }
 
-        # Filter and parse list string and single values to list
+        # Parse int subseting parameters to convert to 0-padded strings
+        # 01, 02, 03, ...
+        self.subset['acq'] = (
+            int2str(acq, self.rjust) if isinstance(acq, int)
+            else [int2str(x, self.rjust) for x in acq] if isinstance(acq, list)
+            else ['.+']
+        )
+
+        # Convert all single values to lists
         self.subset = {
-            k: v.replace(', ',',').split(',') if isinstance(v,str) 
-                else [str(int(v)).rjust(self.rjust, '0')] if isinstance(v,Number) 
-                else v 
+            k: [v] if not isinstance(v, list) else v 
             for k,v in self.subset.items()
         }
 
-        # build subset regex pattern for filtering
+        # Build subset regex pattern for filtering
         subs = '(' + '|'.join(self.subset['sub']) + ')'
         sess = '(' + '|'.join(self.subset['ses']) + ')'
         tasks = '(' + '|'.join(self.subset['task']) + ')'
