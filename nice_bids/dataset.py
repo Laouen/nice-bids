@@ -318,8 +318,7 @@ class NICEBIDS:
         if len(found_files) != 0:
             raise ValueError(f'Data already exists for {sub} {ses} {task} {acq}')
 
-        # Copy file from current location to the new location of the
-        # database building subdirectories if needed
+        # Create the BIDSPath directory for the new data
         new_file = EEGPath(
             root=self.root,
             sub=sub,
@@ -330,6 +329,9 @@ class NICEBIDS:
         )
         new_file_folder = new_file.path.parent
         new_file_folder.mkdir(parents=True, exist_ok=True)
+        
+        # First it copies the zip file to the database location to avoid
+        # problems extracting zip files between different fylesystems
         shutil.copy(zip_file, new_file.path)
 
         # extract zip file
@@ -339,7 +341,7 @@ class NICEBIDS:
             pwd=None
         )
 
-        # remove zip file
+        # remove zip file afeter extraction
         os.remove(new_file.path)
 
         # Add metadata to participants.tsv
