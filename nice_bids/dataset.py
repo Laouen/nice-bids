@@ -282,6 +282,12 @@ class NICEBIDS:
                         sub:str=None, ses:str=None,
                         task:str=None, acq:int=None, run:int=None):
         
+        '''
+            NOTE: In the most cases, the run information is not present in the 
+            derivatives. For dose cases the run parameter should not be used as 
+            there is not run information in the derivatives. 
+        '''
+        
         if acq is not None:
             acq = str(acq).rjust(self.rjust, '0')
         
@@ -297,7 +303,11 @@ class NICEBIDS:
         return [file for file in self.derivative_files if query(file)]
 
     def __repr__(self) -> str:
-        return f'Subjects: {len(self.participants)}, files: {len(self.files)}'
+        n_participants = len(self.participants)
+        n_acqs = len(self.metadata.groupby(["participant_id", 'ses','task', 'acq']))
+        n_files = len(self.files)
+
+        return f'Participants: {n_participants}, Recordings: {n_acqs} Files: {n_files}'
 
     def __iter__(self):
         return iter(self.files)
