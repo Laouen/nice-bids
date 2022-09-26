@@ -1,13 +1,14 @@
 from typing import List, Union, Tuple
-from numbers import Number
 
 import pandas as pd
 import json
 import os
+import sys
 from glob import glob
 import re
 import shutil
 from zipfile import ZipFile
+import numpy as np
 
 from functools import partial
 from multiprocessing import cpu_count
@@ -39,7 +40,8 @@ class NICEBIDS:
                  ses:Union[str,List[str]]=None,
                  task:Union[str,List[str]]=None,
                  acq:Union[int,List[int]]=None,
-                 derivatives:List[str]=None, rjust:int=2, n_jobs=None) -> None:
+                 derivatives:List[str]=None, rjust:int=2,
+                 n_jobs:int=None, strict:bool=False) -> None:
 
         self.n_jobs = n_jobs if n_jobs is not None else cpu_count()
         self.rjust = rjust
@@ -47,6 +49,7 @@ class NICEBIDS:
         self.participants_descriptions = None
         self.participants = None
         self.derivatives_to_load = derivatives
+        self.strict = strict
 
         # Parse string subseting parameters
         self.subset = {
@@ -128,6 +131,8 @@ class NICEBIDS:
             (file, re.search('sub-([a-zA-Z0-9]+)/', file).group(1))
             for file in files
         ]
+
+        # Get recording files metadata
         files = [
             (file, self.participants.loc[f'sub-{sub}'].to_dict())
             for file, sub in files
@@ -164,19 +169,19 @@ class NICEBIDS:
         if self.derivatives_to_load is not None:
             derivatives = '(' + '|'.join(self.derivatives_to_load) + ')'
 
+        # find all derivatives with a correct path pattern
         pattern = os.path.join(
             derivative_root,
             derivatives,
             self.subset_regex_pattern
         )
-
         derivative_files = [file for file in files if re.match(pattern, file)]
-
         derivative_files = [
             file for file in derivative_files
             if BIDSPath.correct_filepath(file, 'derivative')
         ]
 
+        # Get derivatives metadata
         derivative_files = [
             (file, re.search('sub-([a-zA-Z0-9]+)/', file).group(1))
             for file in derivative_files
@@ -186,7 +191,7 @@ class NICEBIDS:
             for file, sub in derivative_files
         ]
 
-        # Parallel loading with a progress bar
+        # Parallel loading with a progress bar and metadata already calculated
         self.derivative_files = process_map(
             load_derivative,
             derivative_files,
@@ -208,6 +213,7 @@ class NICEBIDS:
         )
 
         grouping_cols = ['participant_id', 'ses', 'task', 'acq']
+        remaining_cols = [c for c in self.metadata.columns if c not in grouping_cols]
 
         for rec, group in self.metadata.groupby(grouping_cols):
             if len(group) == 1 and group['run'].values[0] != 1:
@@ -225,7 +231,7 @@ class NICEBIDS:
         )
 
         self.metadata = self.metadata.reindex(
-            [*grouping_cols, *[c for c in self.metadata.columns if c not in grouping_cols]],
+            [*grouping_cols, *remaining_cols],
             axis=1
         )
 
@@ -235,6 +241,8 @@ class NICEBIDS:
                     self.metadata[c],
                     errors='ignore'
                 )
+        
+        self._check_metadata_participants()
 
     def reload_derivatives(self):
         self._read_derivatives()
@@ -303,8 +311,8 @@ class NICEBIDS:
         return [file for file in self.derivative_files if query(file)]
 
     def __repr__(self) -> str:
-        n_participants = len(self.participants)
-        n_acqs = len(self.metadata.groupby(["participant_id", 'ses','task', 'acq']))
+        n_participants = len(self.metadata.groupby('participant_id'))
+        n_acqs = len(self.metadata.groupby(['participant_id', 'ses', 'task', 'acq']))
         n_files = len(self.files)
 
         return f'Participants: {n_participants}, Recordings: {n_acqs} Files: {n_files}'
@@ -317,6 +325,24 @@ class NICEBIDS:
 
     def __len__(self):
         return len(self.files)
+
+    def _check_metadata_participants(self):
+        
+        participants = np.sort(np.unique([
+            p.replace('sub-','')
+            for p in self.participants.index.values
+        ]))
+        metadata = np.sort(np.unique([
+            p.replace('sub-','')
+            for p in self.metadata.participant_id.values
+        ]))
+        
+        if not np.array_equal(participants, metadata):
+            msg = 'Participants metadata inconsistent with participants.tsv'
+            if self.strict:
+                raise ValueError(msg)
+            else:
+                print(f'WARNING: {msg}', file=sys.stderr)
 
     def add(self, zip_file, sub:str, ses:str, task:str, acq:str, setup:str):
         
