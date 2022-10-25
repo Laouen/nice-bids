@@ -33,6 +33,10 @@ def load_derivative(data:Tuple[str, dict]) -> DerivativePath:
         metadata=metadata
     )
 
+# TODO: BIDS standard does not require to have a session, NICEBIDS should neither
+# force to have a session. Same for acq and run. subset_regex_pattern should only
+# define acq if is being used to filter. The run is used to get the metadata, but 
+# it should only be used if present.
 class NICEBIDS:
 
     def __init__(self, root:str, 
