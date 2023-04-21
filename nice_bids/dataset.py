@@ -223,7 +223,13 @@ class NICEBIDS:
             if len(group) == 1 and group['run'].values[0] != 1:
                 raise ValueError(f'Single files metadata incorrect runs != 1 {rec}')
 
-            t_dup = group.duplicated(subset=[c for c in group.columns if c != 'run'], keep=False).sum()
+            try:
+                t_dup = group.duplicated(subset=[c for c in group.columns if c != 'run'], keep=False).sum()
+            except Exception as e:
+                print('Error in group:')
+                print(group)
+                raise e
+            
             if t_dup != len(group) and len(group) > 1:
                 raise ValueError(f'Files metadata inconsistent across runs {rec}')
 
