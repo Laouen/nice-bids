@@ -1,4 +1,4 @@
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Optional
 
 import pandas as pd
 import json
@@ -40,12 +40,12 @@ def load_derivative(data:Tuple[str, dict]) -> DerivativePath:
 class NICEBIDS:
 
     def __init__(self, root:str, 
-                 sub:Union[str,List[str]]=None,
-                 ses:Union[str,List[str]]=None,
-                 task:Union[str,List[str]]=None,
-                 acq:Union[int,List[int]]=None,
-                 derivatives:List[str]=None, rjust:int=2,
-                 n_jobs:int=None, strict:bool=False) -> None:
+                 sub:Optional[Union[str,List[str]]]=None,
+                 ses:Optional[Union[str,List[str]]]=None,
+                 task:Optional[Union[str,List[str]]]=None,
+                 acq:Optional[Union[int,List[int]]]=None,
+                 derivatives:Optional[List[str]]=None, rjust:int=2,
+                 n_jobs:Optional[int]=None, strict:bool=False) -> None:
 
         self.n_jobs = n_jobs if n_jobs is not None else cpu_count()
         self.rjust = rjust
