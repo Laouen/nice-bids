@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 descr = """a EEG dataset I/O that follows the BIDS data structure standard as much as possible."""
@@ -43,7 +43,7 @@ if __name__ == "__main__":
                     'Operating System :: Unix',
                     'Operating System :: MacOS'],
         platforms='any',
-        packages=setuptools.find_packages(exclude=[
+        packages=find_packages(exclude=[
             "*.tests",
             "*.tests.*",
             "tests.*",
