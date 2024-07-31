@@ -1,17 +1,16 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, Optional, List
 
 from pathlib import Path
 import copy
 import os
 import re
-import pandas as pd
 import json
 from glob import glob
 
 _EXTS = ['raw', 'mff', 'vmrk', 'vhdr', 'eeg', 'bdf', 'edf', 'EDF', 'fif', 'set']
 _EXTS_REGEX_PATTERN = '(' + '|'.join(_EXTS) + ')'
-_FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\.'
+_FILENAME_REGEX_PATTERN = f'^sub-[0-9a-zA-Z]+(_ses-[0-9]+)?_task-[0-9a-zA-Z]+(_acq-[0-9]+)?(_run-[0-9]+)?_[0-9a-zA-Z]+\\.'
 _EEG_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}{_EXTS_REGEX_PATTERN}$'
 _DERIVATIVE_FILENAME_REGEX_PATTERN = f'{_FILENAME_REGEX_PATTERN}.*$'
 _DIRPATH_REGEX_PATTERN = 'sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg$'
@@ -25,9 +24,9 @@ _FILENAME_REGEX_DICT = {
 class BIDSPath:
 
     def __init__(self, 
-                 root: Union[str,BIDSPath], sub:str=None, task:str=None, ext:str=None,
-                 suffix:str=None, derivative:str=None, ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, metadata:dict=None) -> None:
+                 root: Union[str,BIDSPath], sub:Optional[str]=None, task:Optional[str]=None, ext:Optional[str]=None,
+                 suffix:Optional[str]=None, derivative:Optional[str]=None, ses:Optional[str]=None, acq:Optional[int]=None, run:Optional[int]=None,
+                 rjust:int=2, metadata:Optional[dict]=None) -> None:
 
         if isinstance(root, BIDSPath):
             self._copy_constructor(root)
@@ -36,9 +35,16 @@ class BIDSPath:
         elif all([f is None for f in [sub, task, suffix, ext]]):
             self._filepath_parser_constructor(root, metadata)
         
+        elif any([f is None for f in [sub, task, suffix, ext]]):
+                raise ValueError('parameters sub, task, suffix, ext '
+                                'must be all different than None')
+
         else:
+            
+            # At this point we know that sub, task, ext and suffix are not None
+            # then we cast them to strings for the type checker
             self._default_constructor(
-                root, sub, task, ext, suffix, derivative,
+                root, str(sub), str(task), str(ext), str(suffix), derivative,
                 ses, acq, run, rjust, metadata
             )
 
@@ -49,7 +55,7 @@ class BIDSPath:
 
     def _filepath_parser_constructor(self, 
                                      filepath:str,
-                                     metadata:dict=None):
+                                     metadata:Optional[dict]=None):
 
         # Extract root and derivative from filepath
         idx = re.search('/sub-[0-9a-zA-Z]+/(ses-[0-9]+/)?eeg', filepath)
@@ -77,18 +83,13 @@ class BIDSPath:
         )
 
     def _default_constructor(self,
-        root: str, sub:str=None, task:str=None, ext:str=None,
-        suffix:str=None, derivative:str=None, ses:str=None, acq:int=None,
-        run:int=None, rjust:int=2, metadata:dict=None):
+        root: str, sub:str, task:str, ext:str, suffix:str,
+        derivative:Optional[str]=None, ses:Optional[str]=None, acq:Optional[int]=None,
+        run:Optional[int]=None, rjust:int=2, metadata:Optional[dict]=None):
 
-        if any([f is None for f in [sub, task, suffix, ext]]):
-            print([sub, task, suffix, ext])
-            raise ValueError('parameters sub, task, suffix, ext '
-                             'must be all different than None')
-        
         if any([not re.match('^[0-9a-zA-Z]+$', f) for f in [sub, task, suffix, ext]]):
             raise ValueError('parameters sub, task, suffix, ext '
-                             'must be all be non empty alphanumeric strings')
+                             'must be all be alphanumeric strings')
         
         if any([f is not None and not isinstance(f, int) for f in [run, acq]]):
             raise ValueError('opional parameters run and acq must be integer numbers')
@@ -98,8 +99,8 @@ class BIDSPath:
         self.metadata = self._get_metadata(metadata)
 
     def _set(self, root:str, sub:str, task:str, ext:str,
-             suffix:str, derivative:str, ses:str,
-             acq:int, run:int, rjust:int):
+             suffix:str, derivative:Optional[str]=None, ses:Optional[str]=None,
+             acq:Optional[int]=None, run:Optional[int]=None, rjust:int=2):
 
         self.root = root
         self.derivative = derivative
@@ -139,7 +140,7 @@ class BIDSPath:
         # Remove not specified fields (i.e. None fields)
         fields = [f for f in fields if f[1] is not None]
         return "_".join(["-".join(f) for f in fields])
-    
+
     def _build_path(self) -> Path:
 
         str_fields = self._get_str_fields()
@@ -152,7 +153,7 @@ class BIDSPath:
             'eeg',
             f'{str_fields}_{self.suffix}.{self.ext}'
         ))
-    
+
     def _build_sidecar_path(self) -> Path:
 
         fields = [
@@ -176,11 +177,11 @@ class BIDSPath:
             'eeg',
             f'{filename}_eeg.json'
         ))
-    
+
     # TODO: extend the suffixes allowed for sidecars or add a raw data asociation
     # to the derivative in order to know which sidecar to consider as associated
     # if we have other neuroimages than eeg 
-    def _get_associated_sidecar_paths(self) -> Path:
+    def _get_associated_sidecar_paths(self) -> List[Path]:
 
         paths = []
         pattern = ''
@@ -206,7 +207,7 @@ class BIDSPath:
     def __repr__(self) -> str:
         return str(self.path)
 
-    def _get_metadata(self, metadata:dict=None) -> dict:
+    def _get_metadata(self, metadata:Optional[dict]=None) -> dict:
         res = metadata if metadata is not None else {}
 
         '''
@@ -290,9 +291,9 @@ class BIDSPath:
 class EEGPath(BIDSPath):
 
     def __init__(self, 
-                 root:Union[str,EEGPath], sub:str=None, task:str=None, 
-                 ext:str=None, ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, metadata:dict=None) -> None:
+                 root:Union[str,EEGPath], sub:Optional[str]=None, task:Optional[str]=None, 
+                 ext:Optional[str]=None, ses:Optional[str]=None, acq:Optional[int]=None, run:Optional[int]=None,
+                 rjust:int=2, metadata:Optional[dict]=None) -> None:
 
         
         suffix = None if sub is None else 'eeg'
@@ -307,10 +308,10 @@ class EEGPath(BIDSPath):
 class DerivativePath(BIDSPath):
 
     def __init__(self, 
-                 root:Union[str,DerivativePath], derivative:str=None,
-                 sub:str=None, task:str=None, suffix:str=None, ext:str=None,
-                 ses:str=None, acq:int=None, run:int=None,
-                 rjust:int=2, metadata:dict=None) -> None:
+                 root:Union[str,DerivativePath], derivative:Optional[str]=None,
+                 sub:Optional[str]=None, task:Optional[str]=None, suffix:Optional[str]=None, ext:Optional[str]=None,
+                 ses:Optional[str]=None, acq:Optional[int]=None, run:Optional[int]=None,
+                 rjust:int=2, metadata:Optional[dict]=None) -> None:
         
         super(DerivativePath, self).__init__(
             root=root, derivative=derivative, 
