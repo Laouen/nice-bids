@@ -1,8 +1,7 @@
 #! /usr/bin/env python
 import os
 
-import setuptools # Needed to work with numpy.distutils.core.setup
-from numpy.distutils.core import setup
+from setuptools import setup
 
 
 descr = """a EEG dataset I/O that follows the BIDS data structure standard as much as possible."""
