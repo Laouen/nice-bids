@@ -258,8 +258,8 @@ class NICEBIDS:
         self._read_derivatives()
         self._create_metadata()
 
-    def get(self, sub:str=None, task:str=None, ext:str=None, ses:str=None,
-                  acq:int=None, run:int=None, suffix:str=None):
+    def get(self, sub:Optional[str]=None, task:Optional[str]=None, ext:Optional[str]=None, ses:Optional[str]=None,
+                  acq:Optional[int]=None, run:Optional[int]=None, suffix:Optional[str]=None):
 
         if acq is not None:
             acq = str(acq).rjust(self.rjust, '0')
@@ -275,8 +275,8 @@ class NICEBIDS:
         
         return [file for file in self.files if query(file)]
     
-    def to_df(self, sub:str=None, task:str=None, ses:str=None,
-                    acq:int=None, run:int=None):
+    def to_df(self, sub:Optional[str]=None, task:Optional[str]=None, ses:Optional[str]=None,
+                    acq:Optional[int]=None, run:Optional[int]=None):
 
         res = self.metadata.copy()
 
