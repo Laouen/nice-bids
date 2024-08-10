@@ -244,13 +244,18 @@ class NICEBIDS:
             [*grouping_cols, *remaining_cols],
             axis=1
         )
+        
+        def try_parse_date(val):
+            try:
+                return pd.to_datetime(val)
+            except (ValueError, TypeError):
+                return val
 
         for c in self.metadata.columns:
             if 'date' in c:
-                self.metadata[c] = pd.to_datetime(
-                    self.metadata[c],
-                    errors='ignore'
-                )
+                # Note: using a custom function to handle individual failures
+                # since pandas.to_datetime will deprecate the use of errors='ignore'
+                self.metadata[c] = self.metadata[c].apply(try_parse_date)
         
         self._check_metadata_participants()
 
