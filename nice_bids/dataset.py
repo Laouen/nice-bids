@@ -196,7 +196,7 @@ class NICEBIDS:
         ]
 
         # Parallel loading with a progress bar and metadata already calculated
-        self.derivative_files = process_map(
+        self.derivative_files: List[DerivativePath] = process_map(
             load_derivative,
             derivative_files,
             max_workers=self.n_jobs,
