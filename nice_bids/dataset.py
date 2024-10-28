@@ -154,6 +154,7 @@ class NICEBIDS:
     def _read_derivatives(self):
         derivative_root = os.path.join(self.root, 'derivatives')
         if not os.path.exists(derivative_root):
+            self.derivative_files = []
             print('There is no derivatives folder. Reading derivative skiped')
             return
 
